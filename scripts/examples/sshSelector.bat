@@ -18,7 +18,7 @@ rem     %AppData%\Local\SCALUS\sshSelector.bat
 rem   (this is the same folder SCALUS itself refers to via the "%AppData%"
 rem   token, e.g. scripts/examples, WinRdpTemplate.rdp, etc. live here too)
 rem
-rem   sshSelector.bat <CountdownSeconds> <User> <Host> <TargetUser> <TargetHost>
+rem   sshSelector.bat <CountdownSeconds> <User> <Host> <Port> <TargetUser> <TargetHost>
 rem
 rem Add the following Application entry to your Scalus configuration:
 rem 
@@ -36,7 +36,7 @@ rem         "Platforms": [ "Windows" ],
 rem         "Protocol": "ssh",
 rem         "Parser": { "ParserId": "ssh", "Options": [] },
 rem         "Exec": "%AppData%\\sshSelector.bat",
-rem         "Args": [ "10", "%User%", "%Host%", "%TargetUser%", "%TargetHost%" ]
+rem         "Args": [ "10", "%User%", "%Host%", "%Port%", "%TargetUser%", "%TargetHost%" ]
 rem       }
 rem     ]
 rem   }
@@ -54,15 +54,16 @@ rem If the User value contains "=" (e.g. Safeguard-style
 rem "vaultaddress=10.10.35.140"), it gets silently split across an extra
 rem parameter and everything after the "=" is lost, shifting Host into the
 rem wrong slot. "FOR /F" only splits on space/tab by default, so we use it
-rem on %* (the raw, unsplit argument string) to recover the 5 real values.
+rem on %* (the raw, unsplit argument string) to recover the 6 real values.
 rem ---------------------------------------------------------------------
 
-for /f "tokens=1,2,3,4,5" %%A in ("%*") do (
+for /f "tokens=1,2,3,4,5,6" %%A in ("%*") do (
     set "COUNTDOWN=%%A"
     set "SSHUSER=%%B"
     set "SSHHOST=%%C"
-    set "TARGETUSER=%%D"
-    set "TARGETHOST=%%E"
+    set "SSHPORT=%%D"
+    set "TARGETUSER=%%E"
+    set "TARGETHOST=%%F"
 )
 
 set "OPENSSH_EXE=C:\Windows\System32\OpenSSH\ssh.exe"
@@ -75,8 +76,13 @@ echo ERROR: User argument is required.
 exit /b 1
 
 :CheckHost
-if not "%SSHHOST%"=="" goto :CheckTargetUser
+if not "%SSHHOST%"=="" goto :CheckPort
 echo ERROR: Host argument is required.
+exit /b 1
+
+:CheckPort
+if not "%SSHPORT%"=="" goto :CheckTargetUser
+echo ERROR: Port argument is required.
 exit /b 1
 
 :CheckTargetUser
@@ -111,7 +117,7 @@ exit /b 1
 
 :RunOpenSsh
 echo Starting Windows OpenSSH...
-start "%TARGETUSER%@%TARGETHOST%" "%OPENSSH_EXE%" -l "%SSHUSER%" "%SSHHOST%"
+start "%TARGETUSER%@%TARGETHOST%" "%OPENSSH_EXE%" -l "%SSHUSER%" -p "%SSHPORT%" "%SSHHOST%"
 goto :Eof
 
 :StartWinScp
@@ -121,7 +127,7 @@ exit /b 1
 
 :RunWinScp
 echo Starting WinSCP...
-start "" "%WINSCP_EXE%" "scp://%SSHUSER%@%SSHHOST%" /sessionname="%TARGETUSER%@%TARGETHOST%"
+start "" "%WINSCP_EXE%" "scp://%SSHUSER%@%SSHHOST%:%SSHPORT%" /sessionname="%TARGETUSER%@%TARGETHOST%"
 goto :Eof
 
 :Eof
